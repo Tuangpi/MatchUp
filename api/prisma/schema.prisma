@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── User ──────────────────────────────────────────────────────
+model User {
+  id        String     @id @default(cuid())
+  name      String
+  email     String     @unique
+  password  String
+  phone     String?
+  avatar    String?
+  rating    Float      @default(1200.0)
+  positions Position[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  hostedGames        Game[]            @relation("HostedGames")
+  gameParticipations GameParticipant[]
+  refreshTokens      RefreshToken[]
+  messages           Message[]
+}
+
+// ── RefreshToken ───────────────────────────────────────────────
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ── Game (futsal match) ───────────────────────────────────────
+model Game {
+  id           String     @id @default(cuid())
+  hostId       String
+  host         User       @relation("HostedGames", fields: [hostId], references: [id])
+  title        String
+  location     String
+  dateTime     DateTime
+  maxPlayers   Int        @default(10) // 5v5 = 10
+  teamAPlayers Int        @default(5)
+  teamBPlayers Int        @default(5)
+  pricePerHead Float      @default(0)
+  status       GameStatus @default(OPEN)
+  notes        String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  participants GameParticipant[]
+  messages     Message[]
+}
+
+// ── GameParticipant (join table) ──────────────────────────────
+model GameParticipant {
+  id               String           @id @default(cuid())
+  gameId           String
+  game             Game             @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team             TeamSide
+  attendanceStatus AttendanceStatus @default(JOINED)
+  createdAt        DateTime         @default(now())
+
+  @@unique([gameId, userId])
+}
+
+// ── Message (chat) ────────────────────────────────────────────
+model Message {
+  id        String   @id @default(cuid())
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([gameId, createdAt])
+}
+
+// ── Enums ─────────────────────────────────────────────────────
+enum Position {
+  GOALKEEPER
+  DEFENDER
+  MIDFIELDER
+  FORWARD
+}
+
+enum GameStatus {
+  OPEN
+  FULL
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TeamSide {
+  TEAM_A
+  TEAM_B
+}
+
+enum AttendanceStatus {
+  JOINED
+  PRESENT
+  ABSENT
+}
